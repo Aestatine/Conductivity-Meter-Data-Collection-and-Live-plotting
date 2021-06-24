@@ -1,0 +1,33 @@
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import csv
+%pylab inline
+%matplotlib 
+time_interval =  1
+filename = '.csv'
+plt.style.use('dark_background')
+fig = plt.figure(figsize =(6,4))
+def animate(i):
+    
+    with open (filename, 'r') as csv_file:
+        csv_reader = csv.reader(csv_file,delimiter=' ')
+        data_num=[]
+        for i in csv_reader:
+            if i == []: 
+                continue
+            elif i[1].split()[-2][-2:] == 'mS':
+                data_num+= [float(i[1].split()[-2][:-2])*1000]
+            else: 
+                data_num+= [float(i[1].split()[-2][:-2])]
+    x = linspace(time_interval/60, len(data_num)*time_interval/60, len(data_num))
+  
+    plt.cla
+    
+    plt.plot(x, data_num)
+    
+    
+    plt.tight_layout() 
+    
+ani =animation.FuncAnimation(fig, animate, interval = time_interval*1000)
+plt.tight_layout()
+plt.show()
