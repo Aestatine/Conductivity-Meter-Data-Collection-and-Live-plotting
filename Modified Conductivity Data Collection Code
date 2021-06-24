@@ -1,0 +1,71 @@
+echo "# Conductivity-Meter-Data-Collection-and-Live-plotting" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/Aestatine/Conductivity-Meter-Data-Collection-and-Live-plotting.git
+git push -u origin main
+
+import time
+import serial
+import datetime
+import csv
+import threading as th
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+"""
+
+Original Made by Blaz Oblak
+Contact in case of problems: blaz-oblak@hotmail.com
+Modified by Joshua Yeoh
+joshymy0922@gmail.com
+
+"""
+
+
+
+port_number = input("What COM port are you using? ")
+port_number = port_number.upper()
+
+ser = serial.Serial(
+    port=port_number,
+    baudrate=1200,
+    parity=serial.PARITY_ODD,
+    stopbits=serial.STOPBITS_ONE,
+    bytesize=serial.SEVENBITS)
+
+#Name of your file
+file_name = input("Enter your filename:  ")
+
+#Time between each measurement
+delta_t = int(input("Time between each measurement (in seconds): "))
+
+#Saves file as a .csv file
+filename_complete = file_name + ".csv"
+print("To stop collecting data press ENTER")
+
+keep_going = True
+def key_capture_thread():
+    global keep_going
+    input()
+    keep_going = False
+
+#Makes a new .csv file,  opens it and adds a new measurement every delta_t seconds
+with open(filename_complete, 'w') as fw:
+    writer = csv.writer(fw, delimiter=' ')
+    #header = ['Time', 'Conductivity and Temperature']
+    #writer.writerow(header)
+    
+th.Thread(target=key_capture_thread, args=(), name='key_capture_thread', daemon=True).start()
+i = 0
+while keep_going:
+    with open(filename_complete, 'a') as fw:
+        
+        ser.write(bytearray("D", "ascii"))
+        sample_measurement = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ser.readline()
+        writer.writerow(sample_measurement)
+        print("This is measurement number ", i+1)
+        i += 1
+    time.sleep(delta_t)
