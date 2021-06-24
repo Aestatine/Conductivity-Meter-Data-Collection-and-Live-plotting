@@ -1,0 +1,81 @@
+import time
+import serial
+import datetime
+import csv
+import threading as th
+import pandas as pd
+
+
+"""
+
+Made by Blaz Oblak
+Contact in case of problems: blaz-oblak@hotmail.com
+
+"""
+
+
+
+port_number = input("What COM port are you using? ")
+port_number = port_number.upper()
+
+ser = serial.Serial(
+    port=port_number,
+    baudrate=1200,
+    parity=serial.PARITY_ODD,
+    stopbits=serial.STOPBITS_ONE,
+    bytesize=serial.SEVENBITS)
+
+#Name of your file
+file_name = input("Enter your filename:  ")
+
+#Time between each measurement
+delta_t = int(input("Time between each measurement (in seconds): "))
+
+#Saves file as a .csv file
+filename_complete = file_name + ".csv"
+print("To stop collecting data press ENTER")
+
+keep_going = True
+def key_capture_thread():
+    global keep_going
+    input()
+    keep_going = False
+
+#Makes a new .csv file,  opens it and adds a new measurement every delta_t seconds
+with open(filename_complete, 'w') as fw:
+    writer = csv.writer(fw, delimiter=' ')
+    th.Thread(target=key_capture_thread, args=(), name='key_capture_thread', daemon=True).start()
+    i = 0
+    while keep_going:
+        time.sleep(delta_t)
+        ser.write(bytearray("D", "ascii"))
+        sample_measurement = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ser.readline()
+        writer.writerow(sample_measurement)
+        print("This is measurement number ", i+1)
+        i += 1
+       
+podatki = pd.read_csv(filename_complete, delimiter=" ", header=None, names=["Date and time", "Conductivity and temperature"], engine="python", skiprows=27)
+
+
+podatki["Conductivity and temperature"] = podatki["Conductivity and temperature"].str[6:]
+podatki['Conductivity and temperature'] = podatki['Conductivity and temperature'].map(lambda x: x.lstrip('* ').rstrip('Cn\\r\n"'))
+
+podatki["Conductivity and temperature"] = podatki["Conductivity and temperature"].str.replace("'", "")
+podatki["Conductivity [uS]"], podatki['Temperature [°C]'] = podatki["Conductivity and temperature"].str.split(' ', 1).str
+podatki = podatki.drop(["Conductivity and temperature"], axis=1)
+podatki["cond_temporary"] = podatki["Conductivity [uS]"]
+podatki["Conductivity [uS]"] = podatki["Conductivity [uS]"].map(lambda x: x.lstrip(' ').rstrip('Sum'))
+pd.to_numeric(podatki["Conductivity [uS]"])
+podatki["Conductivity [uS]"] = podatki["Conductivity [uS]"].astype(float)
+podatki["mS"] = podatki["cond_temporary"].str.contains('mS', regex=False)
+
+podatki.loc[podatki["mS"] == True, "Conductivity [uS]"] = podatki["Conductivity [uS]"].apply(lambda x: x*1000)
+
+for i in range(len(podatki["Conductivity [uS]"]) - 1):
+    podatki["Change"] = podatki.at[i+1, "Conductivity [uS]"] - podatki.at[i, "Conductivity [uS]"]
+
+final_filename = filename_complete + ".xlsx"
+podatki.to_excel(final_filename)
+print("Raw data saved in " + filename_complete)
+print("Cleaned data saved in " + final_filename)
+ser.close()
